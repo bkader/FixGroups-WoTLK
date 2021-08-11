@@ -233,7 +233,7 @@ local function buildRoster()
 	local isRaid = A:IsInRaid()
 	local areAnyUnknown
 	if A:IsInGroup() then
-		R.size = A:GetNumGroupMembers()
+		R.size = A.GetNumGroupMembers()
 		local p, _, unitRole
 		local firstSittingGroup = A.util:GetFirstSittingGroup()
 		local nextGuess = 1

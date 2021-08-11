@@ -17,6 +17,44 @@ local CreateFrame = CreateFrame
 -------------------------------------------------------------------------------
 
 do
+	local tconcat = table.concat
+	local tostring = tostring
+
+	local tmp = {}
+	local function Print(self, frame, ...)
+		local n = 0
+		if self ~= LibCompat then
+			n = n + 1
+			tmp[n] = "|cff33ff99" .. tostring(self) .. "|r:"
+		end
+		for i = 1, select("#", ...) do
+			n = n + 1
+			tmp[n] = tostring(select(i, ...))
+		end
+		frame:AddMessage(tconcat(tmp, " ", 1, n))
+	end
+
+	function LibCompat:Print(...)
+		local frame = ...
+		if type(frame) == "table" and frame.AddMessage then
+			return Print(self, frame, select(2, ...))
+		end
+		return Print(self, DEFAULT_CHAT_FRAME, ...)
+	end
+
+	function LibCompat:Printf(...)
+		local frame = ...
+		if type(frame) == "table" and frame.AddMessage then
+			return Print(self, frame, format(select(2, ...)))
+		else
+			return Print(self, DEFAULT_CHAT_FRAME, format(...))
+		end
+	end
+end
+
+-------------------------------------------------------------------------------
+
+do
 	local pcall = pcall
 
 	local function DispatchError(err)
@@ -107,7 +145,7 @@ do
 	end
 
 	function LibCompat:IsInGroup()
-		return (self:IsInRaid() or self:IsInParty())
+		return (LibCompat:IsInRaid() or LibCompat:IsInParty())
 	end
 
 	function LibCompat:IsInPvP()
@@ -115,11 +153,11 @@ do
 		return (instanceType == "pvp" or instanceType == "arena")
 	end
 
-	function LibCompat:GetNumGroupMembers()
-		return self:IsInRaid() and GetNumRaidMembers() or GetNumPartyMembers()
+	function LibCompat.GetNumGroupMembers()
+		return LibCompat:IsInRaid() and GetNumRaidMembers() or GetNumPartyMembers()
 	end
 
-	function LibCompat:GetNumSubgroupMembers()
+	function LibCompat.GetNumSubgroupMembers()
 		return GetNumPartyMembers()
 	end
 
@@ -138,7 +176,7 @@ do
 	end
 
 	function LibCompat:IsGroupDead()
-		local prefix, min_member, max_member = self:GetGroupTypeAndCount()
+		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
 		if prefix then
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
@@ -153,7 +191,7 @@ do
 	end
 
 	function LibCompat:IsGroupInCombat()
-		local prefix, min_member, max_member = self:GetGroupTypeAndCount()
+		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
 		if prefix then
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
@@ -168,25 +206,25 @@ do
 	end
 
 	function LibCompat:GroupIterator(func, ...)
-		local prefix, min_member, max_member = self:GetGroupTypeAndCount()
+		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
 		if prefix then
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
-				self:QuickDispatch(func, unit, ...)
+				LibCompat:QuickDispatch(func, unit, ...)
 			end
 		else
-			self:QuickDispatch(func, "player", ...)
+			LibCompat:QuickDispatch(func, "player", ...)
 		end
 	end
 
-	function LibCompat:UnitFullName(unit)
+	function LibCompat.UnitFullName(unit)
 		local name, realm = UnitName(unit)
 		local namerealm = realm and realm ~= "" and name .. "-" .. realm or name
 		return namerealm
 	end
 
 	function LibCompat:UnitFromGUID(guid)
-		local prefix, min_member, max_member = self:GetGroupTypeAndCount()
+		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
 		if prefix then
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
@@ -205,7 +243,7 @@ do
 
 	function LibCompat:ClassFromGUID(guid)
 		local class
-		local unit = self:UnitFromGUID(guid)
+		local unit = LibCompat:UnitFromGUID(guid)
 		if unit and unit:find("pet") then
 			class = "PET"
 		elseif unit then
@@ -217,7 +255,7 @@ do
 	function LibCompat:UnitHealthPercent(unit, guid)
 		local health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
 		if not health and guid then
-			unit = self:UnitFromGUID(guid)
+			unit = LibCompat:UnitFromGUID(guid)
 			if unit then
 				health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
 			end
@@ -232,14 +270,22 @@ end
 -------------------------------------------------------------------------------
 
 do
-	local GetPartyLeaderIndex = GetPartyLeaderIndex
+	local IsRaidLeader, GetPartyLeaderIndex = IsRaidLeader, GetPartyLeaderIndex
 	local GetRealNumRaidMembers, GetRaidRosterInfo = GetRealNumRaidMembers, GetRaidRosterInfo
 
 	function LibCompat.UnitIsGroupLeader(unit)
+		if LibCompat:IsInRaid() then
+			if unit == "player" then
+				return IsRaidLeader()
+			end
+
+			local rank = select(2, GetRaidRosterInfo(unit:match("%d+")))
+			return (rank and rank == 2)
+		end
+
 		if unit == "player" then
 			return (GetPartyLeaderIndex() == 0)
 		end
-
 		local index = unit:match("%d+")
 		return (index and index == GetPartyLeaderIndex())
 	end
@@ -534,13 +580,13 @@ local mixins = {
 	"NewTimer",
 	"NewTicker",
 	"CancelAllTimers",
+	"Print",
+	"Printf",
 	"QuickDispatch",
 	"tLength",
 	"tCopy",
 	"tAppendAll",
 	"Clamp",
-	"UnitIsGroupLeader",
-	"UnitIsGroupAssistant",
 	"IsInRaid",
 	"IsInParty",
 	"IsInGroup",
@@ -555,6 +601,8 @@ local mixins = {
 	"UnitFromGUID",
 	"ClassFromGUID",
 	"UnitHealthPercent",
+	"UnitIsGroupLeader",
+	"UnitIsGroupAssistant",
 	"GetClassColorsTable",
 	"GetSpellInfo",
 	"GetSpellLink",

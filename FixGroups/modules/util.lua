@@ -278,7 +278,7 @@ function M:NameAndRealm(name)
 	if strfind(name, "%-") then
 		return name
 	end
-	local realm = select(2, A:UnitFullName(name))
+	local realm = select(2, A.UnitFullName(name))
 	if not realm then
 		realm = gsub(GetRealmName(), "[ %-]", "")
 	end

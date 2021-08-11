@@ -77,7 +77,7 @@ local function inspectTimerStart()
 		return
 	end
 	-- R.timer = M:ScheduleRepeatingTimer(inspectTimerTick, DELAY_TIMER)
-	R.timer = M:NewTicker(DELAY_TIMER, inspectTimerTick)
+	R.timer = A.NewTicker(DELAY_TIMER, inspectTimerTick)
 	if A.DEBUG >= 2 then
 		A.console:Debug(M, "timer start")
 	end

@@ -56,8 +56,8 @@ function M:FixRaid(isRequestFromAssist)
 	local marks = wipe(R.tmp1)
 	local unsetTanks = wipe(R.tmp2)
 	local setNonTanks = wipe(R.tmp3)
-	local name, rank, subgroup, rank, online, raidRole, isML, _, unitID, unitRole
-	for i = 1, A:GetNumGroupMembers() do
+	local name, rank, subgroup, online, raidRole, isML, _, unitID, unitRole
+	for i = 1, A.GetNumGroupMembers() do
 		name, rank, subgroup, _, _, _, _, online, _, raidRole, isML = GetRaidRosterInfo(i)
 		if A.util:IsLeader() and A.options.fixOfflineML and isML and not online then
 			SetLootMethod("master", "player")
