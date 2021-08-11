@@ -1,6 +1,8 @@
 # FixGroups v1.4.1
 ## Addon by bencvt, backported by Kader
 
+**Note: this is not THE final version, if you find any errors please report them so I can fix them asap.**
+
 Organizing groups is an important, if sometimes tedious, part of running a raid. This addon helps automate the process.
 
 Instead of manually dragging players around in the raid tab, just click a **single button** to set things up the way you want:
