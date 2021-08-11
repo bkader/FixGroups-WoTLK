@@ -9,7 +9,7 @@ Instead of manually dragging players around in the raid tab, just click a **sing
 
 * **Mark** tanks and ensure they have **assist**.
 
-Other features:
+## Other features:
 
 * **Split** your raid into two roughly equal sides for raid encounters that need it. Manually combing through damage meters to ensure that your heavy hitters are spread appropriately is for the birds. FixGroups takes care of that for you, integrating with your damage meter addon directly. **Recount**, **Skada**, **TinyDPS**, and **Details!** are all supported.
 
@@ -20,3 +20,16 @@ Other features:
 * Whenever a player joins or leaves your group, the **server message** now includes the player's role and the new comp. Example: *"Darion (Melee) has joined the raid group. 2/4/14 (6+8)."*
 
 * Add the group comp to your UI if you're running a **Data Broker** display addon (**Titan Panel**, **ChocolateBar**, **ElvUI**, etc.) FixGroups makes the comp available as a Data Broker object (a.k.a. LDB plugin).
+
+## How to install
+
+1. [Download the package](https://github.com/bkader/FixGroups-WoTLK/archive/refs/heads/main.zip).
+2. Unpack the Zip file.
+3. Open the folder `FixGroups-WotLK-main`.
+4. Copy (or drag and drop) **FixGroups** folder into you `Wow-Directory\Interface\AddOns`.
+5. Restart WoW
+6. Enjoy!
+
+## Show Love & Support
+
+Though it's not required and I have never asked for it but people keep asking for it, if you want to show love and support, your PayPal donations are most welcome to **bkader[at]mail.com**.
