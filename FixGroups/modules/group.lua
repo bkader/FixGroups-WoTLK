@@ -95,7 +95,8 @@ local function rebuildTimerDone(event)
 end
 
 function M:OnEnable()
-	M:RegisterEvent("GROUP_ROSTER_UPDATE")
+	M:RegisterEvent("PARTY_MEMBERS_CHANGED")
+	M:RegisterEvent("RAID_ROSTER_UPDATE")
 	M:RegisterEvent("PLAYER_ENTERING_WORLD")
 	M:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 	M:RegisterEvent("ROLE_CHANGED_INFORM")
@@ -104,9 +105,10 @@ function M:OnEnable()
 	M:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 end
 
-function M:GROUP_ROSTER_UPDATE(event)
+function M:PARTY_MEMBERS_CHANGED(event)
 	M:ForceBuildRoster(M, event)
 end
+M.RAID_ROSTER_UPDATE = M.PARTY_MEMBERS_CHANGED
 
 function M:PLAYER_ENTERING_WORLD(event)
 	M:ForceBuildRoster(M, event)
