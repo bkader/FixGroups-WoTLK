@@ -1,0 +1,40 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\FrameXML\UI.xsd">
+<Script file="util.lua" />
+
+<Script file="addonChannel.lua" />
+<Script file="buttonGui.lua" />
+<Script file="chooseCommand.lua" />
+<Script file="chooseGui.lua" />
+<Script file="chooseMockup.lua" />
+<Script file="console.lua" />
+<Script file="damagerRole.lua" />
+<Script file="dataBroker.lua" />
+<Script file="fgCommand.lua" />
+<Script file="fgGui.lua" />
+<Script file="group.lua" />
+<Script file="inspect.lua" />
+<Script file="marker.lua" />
+<Script file="meter.lua" />
+<Script file="modJoinLeave.lua" />
+<Script file="options.lua" />
+<Script file="sorter.lua" />
+<Script file="sortModes.lua" />
+<Script file="sortRaid.lua" />
+<Script file="utilGui.lua" />
+
+<Script file="sortModes\alpha.lua" />
+<Script file="sortModes\class.lua" />
+<Script file="sortModes\clearSkip.lua" />
+<Script file="sortModes\core.lua" />
+<Script file="sortModes\default.lua" />
+<Script file="sortModes\last.lua" />
+<Script file="sortModes\meter.lua" />
+<Script file="sortModes\nosort.lua" />
+<Script file="sortModes\random.lua" />
+<Script file="sortModes\split.lua" />
+<Script file="sortModes\thmr.lua" />
+<Script file="sortModes\tmrh.lua" />
+
+<Script file="widgets\SimpleGroup.lua" />
+</Ui>
