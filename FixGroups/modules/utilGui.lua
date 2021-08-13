@@ -132,7 +132,9 @@ do
 			dummy[1].frame.GetHeight = function()
 				return top.frame:GetHeight() + barHeight
 			end
-			AceGUI.LayoutRegistry.FILL(content, dummy)
+			if not WeakAuras then
+				AceGUI.LayoutRegistry.FILL(content, dummy)
+			end
 		end
 	)
 end
