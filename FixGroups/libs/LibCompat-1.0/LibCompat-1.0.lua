@@ -612,6 +612,7 @@ function LibCompat:Embed(target)
 	for k, v in pairs(mixins) do
 		target[v] = self[v]
 	end
+	target.locale = target.locale or GetLocale()
 	self.embeds[target] = true
 	return target
 end
