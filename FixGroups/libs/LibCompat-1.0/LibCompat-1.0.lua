@@ -4,14 +4,16 @@
 -- @author: Kader B (https://github.com/bkader)
 --
 
-local MAJOR, MINOR = "LibCompat-1.0", 3
+local MAJOR, MINOR = "LibCompat-1.0", 6
 
 local LibCompat, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibCompat then return end
 
 LibCompat.embeds = LibCompat.embeds or {}
 
-local pairs, select, tinsert, format = pairs, select, table.insert, string.format
+local pairs, ipairs, select, type = pairs, ipairs, select, type
+local tinsert, tremove, wipe = table.insert, table.remove, wipe
+local setmetatable, format = setmetatable, string.format
 local CreateFrame = CreateFrame
 
 -------------------------------------------------------------------------------
@@ -110,6 +112,41 @@ end
 function LibCompat.tAppendAll(tbl, elems)
 	for _, elem in ipairs(elems) do
 		tinsert(tbl, elem)
+	end
+end
+
+do
+	local weaktable = {__mode = "v"}
+	function LibCompat.WeakTable(t)
+		return setmetatable(wipe(t or {}), weaktable)
+	end
+
+	-- Shamelessly copied from Omen - thanks!
+	local tablePool = {}
+	setmetatable(tablePool, {__mode = "kv"})
+
+	-- get a new table
+	function LibCompat.newTable()
+		local t = next(tablePool) or {}
+		tablePool[t] = nil
+		return t
+	end
+
+	-- delete table and return to pool
+	function LibCompat.delTable(t, recursive)
+		if type(t) == "table" then
+			for k, v in pairs(t) do
+				if recursive and type(v) == "table" then
+					LibCompat.delTable(v, recursive)
+				end
+				t[k] = nil
+			end
+			t[true] = true
+			t[true] = nil
+			setmetatable(t, nil)
+			tablePool[t] = true
+		end
+		return nil
 	end
 end
 
@@ -232,12 +269,26 @@ do
 					return unit
 				elseif UnitExists(unit .. "pet") and UnitGUID(unit .. "pet") then
 					return unit .. "pet"
+				elseif UnitExists(unit .. "target") and UnitGUID(unit .. "target") == guid then
+					return unit .. "target"
+				elseif UnitExists(unit .. "pettarget") and UnitGUID(unit .. "pettarget") == guid then
+					return unit .. "pettarget"
 				end
 			end
 		elseif UnitGUID("player") == guid then
 			return "player"
 		elseif UnitExists("playerpet") and UnitGUID("playerpet") == guid then
 			return "playerpet"
+		elseif UnitExists("target") and UnitGUID("target") == guid then
+			return "target"
+		elseif UnitExists("focus") and UnitGUID("focus") == guid then
+			return "focus"
+		else
+			for i = 1, 4 do
+				if UnitExists("boss" .. i) and UnitGUID("boss" .. i) == guid then
+					return "boss" .. i
+				end
+			end
 		end
 	end
 
@@ -252,8 +303,20 @@ do
 		return class, unit
 	end
 
-	function LibCompat:UnitHealthPercent(unit, guid)
-		local health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
+	function LibCompat:GetCreatureId(guid)
+		return guid and tonumber(guid:sub(9, 12), 16) or 0
+	end
+
+	function LibCompat:GetUnitCreatureId(unit)
+		return LibCompat:GetCreatureId(UnitGUID(unit))
+	end
+
+	function LibCompat:UnitHealthInfo(unit, guid)
+		local health, maxhealth
+		if unit then
+			health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
+		end
+
 		if not health and guid then
 			unit = LibCompat:UnitFromGUID(guid)
 			if unit then
@@ -263,6 +326,25 @@ do
 
 		if health and maxhealth then
 			return floor(100 * health / maxhealth), health, maxhealth
+		end
+	end
+	LibCompat.UnitHealthPercent = LibCompat.UnitHealthInfo -- backwards compatibility
+
+	function LibCompat:UnitPowerInfo(unit, guid, powerType)
+		local power, maxpower
+		if unit then
+			power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
+		end
+
+		if not power and guid then
+			unit = LibCompat:UnitFromGUID(guid)
+			if unit then
+				power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
+			end
+		end
+
+		if power and maxpower then
+			return floor(100 * power / maxpower), power, maxpower
 		end
 	end
 end
@@ -337,9 +419,6 @@ end
 -- C_Timer mimic
 
 do
-	local type, setmetatable = type, setmetatable
-	local tinsert, tremove = table.insert, table.remove
-
 	local Timer = {}
 
 	local TickerPrototype = {}
@@ -582,6 +661,9 @@ local mixins = {
 	"tLength",
 	"tCopy",
 	"tAppendAll",
+	"WeakTable",
+	"newTable",
+	"delTable",
 	"Clamp",
 	"IsInRaid",
 	"IsInParty",
@@ -596,7 +678,11 @@ local mixins = {
 	"UnitFullName",
 	"UnitFromGUID",
 	"ClassFromGUID",
+	"GetCreatureId",
+	"GetUnitCreatureId",
+	"UnitHealthInfo",
 	"UnitHealthPercent",
+	"UnitPowerInfo",
 	"UnitIsGroupLeader",
 	"UnitIsGroupAssistant",
 	"GetClassColorsTable",

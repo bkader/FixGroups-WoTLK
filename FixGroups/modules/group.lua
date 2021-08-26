@@ -111,7 +111,7 @@ end
 M.RAID_ROSTER_UPDATE = M.PARTY_MEMBERS_CHANGED
 
 function M:PLAYER_ENTERING_WORLD(event)
-	M:ForceBuildRoster(M, event)
+	A.After(1, function() M:ForceBuildRoster(M, event) end)
 end
 
 function M:PLAYER_SPECIALIZATION_CHANGED(event, unitID)
@@ -242,7 +242,7 @@ local function buildRoster()
 		for i = 1, R.size do
 			p = wipe(R.rosterArray[i])
 			p.rindex = i
-			p.name, p.rank, p.group, _, _, p.class, p.zone = GetRaidRosterInfo(i)
+			p.name, p.rank, p.group, _, _, p.class, p.zone, _, _, unitRole = GetRaidRosterInfo(i)
 			if isRaid then
 				p.unitID = "raid" .. i
 			else
@@ -260,8 +260,8 @@ local function buildRoster()
 				p.isSitting = true
 			end
 			R.groupSizes[p.group] = R.groupSizes[p.group] + 1
-			unitRole = A.GetUnitRole(p.unitID)
-			if unitRole == "TANK" then
+			unitRole = unitRole or A.GetUnitRole(p.unitID)
+			if unitRole == "TANK" or unitRole == "MAINTANK" or unitRole == "MAINASSIST" then
 				p.role = M.ROLE.TANK
 			elseif unitRole == "HEALER" then
 				p.role = M.ROLE.HEALER
