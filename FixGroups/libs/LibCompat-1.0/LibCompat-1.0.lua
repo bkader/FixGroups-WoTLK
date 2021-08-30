@@ -576,8 +576,8 @@ do
 		})
 	end
 
-	LibCompat.NewTimer = function(duration, callback)
-		return CreateTicker(duration, callback, 1)
+	LibCompat.NewTimer = function(duration, callback, ...)
+		return CreateTicker(duration, callback, 1, ...)
 	end
 
 	LibCompat.NewTicker = function(duration, callback, iterations, ...)
