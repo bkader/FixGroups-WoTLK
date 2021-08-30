@@ -35,9 +35,9 @@ local function groupCompOnTooltipShow(tooltip)
 	if A.DEBUG >= 1 then
 		A.console:Debugf(M, "groupCompOnTooltipShow tooltip=%s", tostring(tooltip))
 	end
-	if A:IsInGroup() then
+	if A.IsInGroup() then
 		local t, h, m, r, u = A.group:GetRoleCountsTHMRU()
-		tooltip:AddDoubleLine(format("%s (%s):", L["phrase.groupComp"], (A:IsInRaid() and L["word.raid"] or L["word.party"])), A.util:FormatGroupComp(A.util.GROUP_COMP_STYLE.TEXT_SHORT, t, h, m, r, u), 1, 1, 0, 1, 1, 0)
+		tooltip:AddDoubleLine(format("%s (%s):", L["phrase.groupComp"], (A.IsInRaid() and L["word.raid"] or L["word.party"])), A.util:FormatGroupComp(A.util.GROUP_COMP_STYLE.TEXT_SHORT, t, h, m, r, u), 1, 1, 0, 1, 1, 0)
 		tooltip:AddLine(" ")
 		tooltip:AddDoubleLine(A.util:GetRoleIcon("TANK") .. " " .. L["word.tank.plural"], tostring(t), 1, 1, 1, 1, 1, 0)
 		tooltip:AddDoubleLine(A.util:GetRoleIcon("HEALER") .. " " .. L["word.healer.plural"], tostring(h), 1, 1, 1, 1, 1, 0)
@@ -98,7 +98,7 @@ function M:FIXGROUPS_COMP_CHANGED(message)
 end
 
 function M:RefreshGroupComp()
-	if A:IsInGroup() and A.group:GetSize() > 0 then
+	if A.IsInGroup() and A.group:GetSize() > 0 then
 		R.groupComp.text = A.group:GetComp(A.options.dataBrokerGroupCompStyle)
 	else
 		R.groupComp.text = NOT_IN_GROUP

@@ -4,7 +4,7 @@
 -- @author: Kader B (https://github.com/bkader)
 --
 
-local MAJOR, MINOR = "LibCompat-1.0", 6
+local MAJOR, MINOR = "LibCompat-1.0", 10
 
 local LibCompat, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibCompat then return end
@@ -63,7 +63,7 @@ do
 		print("|cffff9900Error|r:" .. (err or "<no error given>"))
 	end
 
-	function LibCompat:QuickDispatch(func, ...)
+	function LibCompat.QuickDispatch(func, ...)
 		if type(func) ~= "function" then
 			return
 		end
@@ -78,46 +78,56 @@ end
 
 -------------------------------------------------------------------------------
 
-function LibCompat.tLength(tbl)
-	local len = 0
-	for _ in pairs(tbl) do
-		len = len + 1
+do
+	local function SafePack(...)
+		local tbl = {...}
+		tbl.n = select("#", ...)
+		return tbl
 	end
-	return len
-end
 
--- copies a table from another
-function LibCompat.tCopy(to, from, ...)
-	for k, v in pairs(from) do
-		local skip = false
-		if ... then
-			for i, j in ipairs(...) do
-				if j == k then
-					skip = true
-					break
+	local function SafeUnpack(tbl)
+		return unpack(tbl, 1, tbl.n)
+	end
+
+	local function tLength(tbl)
+		local len = 0
+		for _ in pairs(tbl) do
+			len = len + 1
+		end
+		return len
+	end
+
+	-- copies a table from another
+	local function tCopy(to, from, ...)
+		for k, v in pairs(from) do
+			local skip = false
+			if ... then
+				for i, j in ipairs(...) do
+					if j == k then
+						skip = true
+						break
+					end
+				end
+			end
+			if not skip then
+				if type(v) == "table" then
+					to[k] = {}
+					tCopy(to[k], v, ...)
+				else
+					to[k] = v
 				end
 			end
 		end
-		if not skip then
-			if type(v) == "table" then
-				to[k] = {}
-				LibCompat.tCopy(to[k], v, ...)
-			else
-				to[k] = v
-			end
+	end
+
+	local function tAppendAll(tbl, elems)
+		for _, elem in ipairs(elems) do
+			tinsert(tbl, elem)
 		end
 	end
-end
 
-function LibCompat.tAppendAll(tbl, elems)
-	for _, elem in ipairs(elems) do
-		tinsert(tbl, elem)
-	end
-end
-
-do
 	local weaktable = {__mode = "v"}
-	function LibCompat.WeakTable(t)
+	local function WeakTable(t)
 		return setmetatable(wipe(t or {}), weaktable)
 	end
 
@@ -126,18 +136,18 @@ do
 	setmetatable(tablePool, {__mode = "kv"})
 
 	-- get a new table
-	function LibCompat.newTable()
+	local function newTable()
 		local t = next(tablePool) or {}
 		tablePool[t] = nil
 		return t
 	end
 
 	-- delete table and return to pool
-	function LibCompat.delTable(t, recursive)
+	local function delTable(t, recursive)
 		if type(t) == "table" then
 			for k, v in pairs(t) do
 				if recursive and type(v) == "table" then
-					LibCompat.delTable(v, recursive)
+					delTable(v, recursive)
 				end
 				t[k] = nil
 			end
@@ -148,177 +158,216 @@ do
 		end
 		return nil
 	end
-end
 
--------------------------------------------------------------------------------
-
-function LibCompat.Clamp(val, minval, maxval)
-	if val > maxval then
-		return maxval
-	elseif val < minval then
-		return minval
-	else
-		return val
-	end
+	LibCompat.SafePack = SafePack
+	LibCompat.SafeUnpack = SafeUnpack
+	LibCompat.tLength = tLength
+	LibCompat.tCopy = tCopy
+	LibCompat.tAppendAll = tAppendAll
+	LibCompat.WeakTable = WeakTable
+	LibCompat.newTable = newTable
+	LibCompat.delTable = delTable
 end
 
 -------------------------------------------------------------------------------
 
 do
-	local GetNumRaidMembers = GetNumRaidMembers
-	local GetNumPartyMembers = GetNumPartyMembers
-	local UnitAffectingCombat = UnitAffectingCombat
-	local InCombatLockdown = InCombatLockdown
-	local UnitIsDeadOrGhost = UnitIsDeadOrGhost
-	local IsInInstance = IsInInstance
-	local UnitExists = UnitExists
+	local floor, ceil = math.floor, math.ceil
 
-	function LibCompat:IsInRaid()
+	local function Round(val)
+		return (val < 0.0) and ceil(val - 0.5) or floor(val + 0.5)
+	end
+
+	local function Square(val)
+		return val * val
+	end
+
+	local function Clamp(val, minval, maxval)
+		return (val > maxval) and maxval or (val < minval) and minval or val
+	end
+
+	local function WithinRange(val, minval, maxval)
+		return val >= minval and val <= maxval
+	end
+
+	local function WithinRangeExclusive(val, minval, maxval)
+		return val > minval and value < maxval
+	end
+
+	LibCompat.Round = Round
+	LibCompat.Square = Square
+	LibCompat.Clamp = Clamp
+	LibCompat.WithinRange = WithinRange
+	LibCompat.WithinRangeExclusive = WithinRangeExclusive
+end
+
+-------------------------------------------------------------------------------
+
+do
+	local GetNumRaidMembers, GetNumPartyMembers = GetNumRaidMembers, GetNumPartyMembers
+	local UnitAffectingCombat, UnitIsDeadOrGhost = UnitAffectingCombat, UnitIsDeadOrGhost
+	local UnitExists, IsInInstance = UnitExists, IsInInstance
+	local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
+	local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
+
+	local function IsInRaid()
 		return (GetNumRaidMembers() > 0)
 	end
 
-	function LibCompat:IsInParty()
+	local function IsInParty()
 		return (GetNumPartyMembers() > 0)
 	end
 
-	function LibCompat:IsInGroup()
-		return (LibCompat:IsInRaid() or LibCompat:IsInParty())
+	local function IsInGroup()
+		return (GetNumRaidMembers() > 0 or GetNumPartyMembers() > 0)
 	end
 
-	function LibCompat:IsInPvP()
-		local instanceType = select(2, IsInInstance())
-		return (instanceType == "pvp" or instanceType == "arena")
+	local IsInPvP
+	do
+		local instanceType
+		function IsInPvP()
+			instanceType = select(2, IsInInstance())
+			return (instanceType == "pvp" or instanceType == "arena")
+		end
 	end
 
-	function LibCompat.GetNumGroupMembers()
-		return LibCompat:IsInRaid() and GetNumRaidMembers() or GetNumPartyMembers()
+	local function GetNumGroupMembers()
+		return IsInRaid() and GetNumRaidMembers() or GetNumPartyMembers()
 	end
 
-	function LibCompat.GetNumSubgroupMembers()
+	local function GetNumSubgroupMembers()
 		return GetNumPartyMembers()
 	end
 
-	function LibCompat:GetGroupTypeAndCount()
-		local prefix, min_member, max_member = "raid", 1, GetNumRaidMembers()
-
-		if max_member == 0 then
-			prefix, min_member, max_member = "party", 0, GetNumPartyMembers()
+	local function GetGroupTypeAndCount()
+		if IsInRaid() then
+			return "raid", 1, GetNumRaidMembers()
+		elseif IsInGroup() then
+			return "party", 0, GetNumPartyMembers()
+		else
+			return nil, 0, 0
 		end
-
-		if max_member == 0 then
-			prefix, min_member, max_member = nil, 0, 0
-		end
-
-		return prefix, min_member, max_member
 	end
 
-	function LibCompat:IsGroupDead()
-		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
-		if prefix then
+	local function IsGroupDead()
+		if not UnitIsDeadOrGhost("player") then
+			return false
+		elseif IsInGroup() then
+			local prefix, min_member, max_member = GetGroupTypeAndCount()
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
 				if UnitExists(unit) and not UnitIsDeadOrGhost(unit) then
 					return false
 				end
 			end
-		elseif not UnitIsDeadOrGhost("player") then
-			return false
 		end
 		return true
 	end
 
-	function LibCompat:IsGroupInCombat()
-		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
-		if prefix then
+	local function IsGroupInCombat()
+		if UnitAffectingCombat("player") then
+			return true
+		elseif IsInGroup() then
+			local prefix, min_member, max_member = GetGroupTypeAndCount()
 			for i = min_member, max_member do
 				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
 				if UnitExists(unit) and UnitAffectingCombat(unit) then
 					return true
 				end
 			end
-		elseif UnitAffectingCombat("player") then
-			return true
 		end
 		return false
 	end
 
-	function LibCompat:GroupIterator(func, ...)
-		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
-		if prefix then
-			for i = min_member, max_member do
-				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
-				LibCompat:QuickDispatch(func, unit, ...)
+	local function GroupIterator(func, ...)
+		if IsInRaid() then
+			for i = 1, GetNumRaidMembers() do
+				LibCompat.QuickDispatch(func, format("raid%d", i), ...)
+			end
+		elseif IsInGroup() then
+			for i = 0, 4 do
+				LibCompat.QuickDispatch(func, (i == 0) and "player" or format("party%d", i), ...)
 			end
 		else
-			LibCompat:QuickDispatch(func, "player", ...)
+			LibCompat.QuickDispatch(func, "player", ...)
 		end
 	end
 
-	function LibCompat.UnitFullName(unit)
+	local function UnitFullName(unit)
 		local name, realm = UnitName(unit)
 		local namerealm = realm and realm ~= "" and name .. "-" .. realm or name
 		return namerealm
 	end
 
-	function LibCompat:UnitFromGUID(guid)
-		local prefix, min_member, max_member = LibCompat:GetGroupTypeAndCount()
-		if prefix then
-			for i = min_member, max_member do
-				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
-				if UnitExists(unit) and UnitGUID(unit) == guid then
-					return unit
-				elseif UnitExists(unit .. "pet") and UnitGUID(unit .. "pet") then
-					return unit .. "pet"
+	local function GetUnitIdFromGUID(guid)
+		local unitId
+		for i = 1, 4 do
+			if UnitExists("boss" .. i) and UnitGUID("boss" .. i) == guid then
+				unitId = "boss" .. i
+				break
+			end
+		end
+
+		if not unitId then
+			if UnitExists("target") and UnitGUID("target") == guid then
+				unitId = "target"
+			elseif UnitExists("focus") and UnitGUID("focus") == guid then
+				unitId = "focus"
+			elseif UnitExists("targettarget") and UnitGUID("targettarget") == guid then
+				unitId = "targettarget"
+			elseif UnitExists("focustarget") and UnitGUID("focustarget") == guid then
+				unitId = "focustarget"
+			elseif UnitExists("mouseover") and UnitGUID("mouseover") == guid then
+				unitId = "mouseover"
+			end
+		end
+
+		if not unitId then
+			GroupIterator(function(unit)
+				if unitId then
+					return
+				elseif UnitExists(unit) and UnitGUID(unit) == guid then
+					unitId = unit
+				elseif UnitExists(unit .. "pet") and UnitGUID(unit .. "pet") == guid then
+					unitId = unit .. "pet"
 				elseif UnitExists(unit .. "target") and UnitGUID(unit .. "target") == guid then
-					return unit .. "target"
+					unitId = unit .. "target"
 				elseif UnitExists(unit .. "pettarget") and UnitGUID(unit .. "pettarget") == guid then
-					return unit .. "pettarget"
+					unitId = unit .. "pettarget"
 				end
-			end
-		elseif UnitGUID("player") == guid then
-			return "player"
-		elseif UnitExists("playerpet") and UnitGUID("playerpet") == guid then
-			return "playerpet"
-		elseif UnitExists("target") and UnitGUID("target") == guid then
-			return "target"
-		elseif UnitExists("focus") and UnitGUID("focus") == guid then
-			return "focus"
-		else
-			for i = 1, 4 do
-				if UnitExists("boss" .. i) and UnitGUID("boss" .. i) == guid then
-					return "boss" .. i
-				end
-			end
+			end)
 		end
+
+		return unitId
 	end
 
-	function LibCompat:ClassFromGUID(guid)
-		local class
-		local unit = LibCompat:UnitFromGUID(guid)
+	local function GetClassFromGUID(guid)
+		local unit = GetUnitIdFromGUID(guid)
 		if unit and unit:find("pet") then
-			class = "PET"
-		elseif unit then
-			class = select(2, UnitClass(unit))
+			return "PET", unit
 		end
-		return class, unit
+		if UnitExists(unit) then
+			return select(2, UnitClass(unit)), unit
+		end
+		return nil, unit
 	end
 
-	function LibCompat:GetCreatureId(guid)
+	local function GetCreatureId(guid)
 		return guid and tonumber(guid:sub(9, 12), 16) or 0
 	end
 
-	function LibCompat:GetUnitCreatureId(unit)
-		return LibCompat:GetCreatureId(UnitGUID(unit))
+	local function GetUnitCreatureId(unit)
+		return GetCreatureId(UnitGUID(unit))
 	end
 
-	function LibCompat:UnitHealthInfo(unit, guid)
+	local function UnitHealthInfo(unit, guid)
 		local health, maxhealth
-		if unit then
+		if unit and UnitExists(unit) then
 			health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
 		end
 
 		if not health and guid then
-			unit = LibCompat:UnitFromGUID(guid)
+			unit = GetUnitIdFromGUID(guid)
 			if unit then
 				health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
 			end
@@ -328,16 +377,15 @@ do
 			return floor(100 * health / maxhealth), health, maxhealth
 		end
 	end
-	LibCompat.UnitHealthPercent = LibCompat.UnitHealthInfo -- backwards compatibility
 
-	function LibCompat:UnitPowerInfo(unit, guid, powerType)
+	local function UnitPowerInfo(unit, guid, powerType)
 		local power, maxpower
-		if unit then
+		if unit and UnitExists(unit) then
 			power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
 		end
 
 		if not power and guid then
-			unit = LibCompat:UnitFromGUID(guid)
+			unit = GetUnitIdFromGUID(guid)
 			if unit then
 				power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
 			end
@@ -347,6 +395,23 @@ do
 			return floor(100 * power / maxpower), power, maxpower
 		end
 	end
+
+	LibCompat.IsInRaid = IsInRaid
+	LibCompat.IsInParty = IsInParty
+	LibCompat.IsInGroup = IsInGroup
+	LibCompat.IsInPvP = IsInPvP
+	LibCompat.GetGroupTypeAndCount = GetGroupTypeAndCount
+	LibCompat.IsGroupDead = IsGroupDead
+	LibCompat.IsGroupInCombat = IsGroupInCombat
+	LibCompat.GroupIterator = GroupIterator
+	LibCompat.UnitFullName = UnitFullName
+	LibCompat.GetUnitIdFromGUID = GetUnitIdFromGUID
+	LibCompat.GetClassFromGUID = GetClassFromGUID
+	LibCompat.GetCreatureId = GetCreatureId
+	LibCompat.GetUnitCreatureId = GetUnitCreatureId
+	LibCompat.UnitHealthInfo = UnitHealthInfo
+	LibCompat.UnitHealthPercent = UnitHealthInfo -- backwards compatibility
+	LibCompat.UnitPowerInfo = UnitPowerInfo
 end
 
 -------------------------------------------------------------------------------
@@ -355,8 +420,8 @@ do
 	local IsRaidLeader, GetPartyLeaderIndex = IsRaidLeader, GetPartyLeaderIndex
 	local GetRealNumRaidMembers, GetRaidRosterInfo = GetRealNumRaidMembers, GetRaidRosterInfo
 
-	function LibCompat.UnitIsGroupLeader(unit)
-		if LibCompat:IsInRaid() then
+	local function UnitIsGroupLeader(unit)
+		if LibCompat.IsInRaid() then
 			if unit == "player" then
 				return IsRaidLeader()
 			end
@@ -372,7 +437,7 @@ do
 		return (index and index == GetPartyLeaderIndex())
 	end
 
-	function LibCompat.UnitIsGroupAssistant(unit)
+	local function UnitIsGroupAssistant(unit)
 		for i = 1, GetRealNumRaidMembers() do
 			local name, rank = GetRaidRosterInfo(i)
 			if name == UnitName(unit) then
@@ -381,6 +446,9 @@ do
 		end
 		return false
 	end
+
+	LibCompat.UnitIsGroupLeader = UnitIsGroupLeader
+	LibCompat.UnitIsGroupAssistant = UnitIsGroupAssistant
 end
 
 -------------------------------------------------------------------------------
@@ -390,7 +458,7 @@ do
 	local classColorsTable
 	local colors = CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS
 
-	function LibCompat:GetClassColorsTable()
+	function LibCompat.GetClassColorsTable()
 		if not classColorsTable then
 			-- add missing class color strings
 			colors.DEATHKNIGHT.colorStr = "ffc41f3b"
@@ -438,7 +506,7 @@ do
 					ticker._delay = ticker._delay - elapsed
 					i = i + 1
 				else
-					ticker._callback(ticker)
+					ticker._callback(ticker, LibCompat.SafeUnpack(ticker._args or {}))
 
 					if ticker._remainingIterations == -1 then
 						ticker._delay = ticker._duration
@@ -469,12 +537,13 @@ do
 		waitFrame:Show()
 	end
 
-	local function CreateTicker(duration, callback, iterations)
+	local function CreateTicker(duration, callback, iterations, ...)
 		local ticker = setmetatable({}, TickerMetatable)
 		ticker._remainingIterations = iterations or -1
 		ticker._duration = duration
 		ticker._delay = duration
 		ticker._callback = callback
+		ticker._args = LibCompat.SafePack(...)
 
 		AddDelayedCall(ticker)
 		return ticker
@@ -496,11 +565,12 @@ do
 		end
 	end
 
-	LibCompat.After = function(duration, callback)
+	LibCompat.After = function(duration, callback, ...)
 		AddDelayedCall({
 			_remainingIterations = 1,
 			_delay = duration,
-			_callback = callback
+			_callback = callback,
+			_args = LibCompat.SafePack(...)
 		})
 	end
 
@@ -508,8 +578,8 @@ do
 		return CreateTicker(duration, callback, 1)
 	end
 
-	LibCompat.NewTicker = function(duration, callback, iterations)
-		return CreateTicker(duration, callback, iterations)
+	LibCompat.NewTicker = function(duration, callback, iterations, ...)
+		return CreateTicker(duration, callback, iterations, ...)
 	end
 end
 
@@ -527,7 +597,7 @@ do
 		[8] = {ACTION_ENVIRONMENTAL_DAMAGE_SLIME, "Interface\\Icons\\inv_misc_slime_01"}
 	}
 
-	function LibCompat.GetSpellInfo(spellid)
+	local function _GetSpellInfo(spellid)
 		local res1, res2, res3, res4, res5, res6, res7, res8, res9
 		if spellid then
 			if custom[spellid] then
@@ -544,11 +614,14 @@ do
 		return res1, res2, res3, res4, res5, res6, res7, res8, res9
 	end
 
-	function LibCompat.GetSpellLink(spellid)
+	local function _GetSpellLink(spellid)
 		if not custom[spellid] then
 			return GetSpellLink(spellid)
 		end
 	end
+
+	LibCompat.GetSpellInfo = _GetSpellInfo
+	LibCompat.GetSpellLink = _GetSpellLink
 end
 
 -------------------------------------------------------------------------------
@@ -592,7 +665,7 @@ do
 		return (points and points > 0) and 3 or 2
 	end
 
-	function LibCompat.GetSpecialization(unit, class)
+	local function GetSpecialization(unit, class)
 		unit = unit or "player"
 		class = class or select(2, UnitClass(unit))
 
@@ -626,58 +699,62 @@ do
 		return spec
 	end
 
-	do
-		local function GetTrueRole(role)
-			if role == "melee" or role == "caster" then
-				role = "DAMAGER"
-			elseif role == "tank" then
-				role = "TANK"
-			elseif role == "healer" then
-				role = "HEALER"
-			end
-			return role
+	local function GetTrueRole(role)
+		if role == "melee" or role == "caster" then
+			role = "DAMAGER"
+		elseif role == "tank" then
+			role = "TANK"
+		elseif role == "healer" then
+			role = "HEALER"
 		end
-
-		function LibCompat.GetUnitRole(unit)
-			return GetTrueRole(LGT:GetUnitRole(unit) or "NONE")
-		end
-
-		function LibCompat.GetGUIDRole(guid)
-			return GetTrueRole(LGT:GetGUIDRole(guid) or "NONE")
-		end
+		return role
 	end
+
+	local function GetUnitRole(unit)
+		return GetTrueRole(LGT:GetUnitRole(unit)) or "NONE"
+	end
+
+	local function GetGUIDRole(guid)
+		return GetTrueRole(LGT:GetGUIDRole(guid)) or "NONE"
+	end
+
+	LibCompat.GetSpecialization = GetSpecialization
+	LibCompat.GetUnitRole = GetUnitRole
+	LibCompat.GetGUIDRole = GetGUIDRole
 end
 
 -------------------------------------------------------------------------------
 
 local mixins = {
-	"After",
-	"NewTimer",
-	"NewTicker",
-	"CancelAllTimers",
-	"Print",
-	"Printf",
 	"QuickDispatch",
+	-- table util
+	"SafePack",
+	"SafeUnpack",
 	"tLength",
 	"tCopy",
 	"tAppendAll",
 	"WeakTable",
 	"newTable",
 	"delTable",
+	-- math util
+	"Round",
+	"Square",
 	"Clamp",
+	"WithinRange",
+	"WithinRangeExclusive",
+	-- roster util
 	"IsInRaid",
 	"IsInParty",
 	"IsInGroup",
 	"IsInPvP",
-	"GetNumGroupMembers",
-	"GetNumSubgroupMembers",
 	"GetGroupTypeAndCount",
 	"IsGroupDead",
 	"IsGroupInCombat",
 	"GroupIterator",
 	"UnitFullName",
-	"UnitFromGUID",
-	"ClassFromGUID",
+	-- unit util
+	"GetUnitIdFromGUID",
+	"GetClassFromGUID",
 	"GetCreatureId",
 	"GetUnitCreatureId",
 	"UnitHealthInfo",
@@ -685,13 +762,22 @@ local mixins = {
 	"UnitPowerInfo",
 	"UnitIsGroupLeader",
 	"UnitIsGroupAssistant",
-	"GetClassColorsTable",
-	"GetSpellInfo",
-	"GetSpellLink",
-	"EscapeStr",
 	"GetSpecialization",
 	"GetUnitRole",
-	"GetGUIDRole"
+	"GetGUIDRole",
+	-- timer unit
+	"After",
+	"NewTimer",
+	"NewTicker",
+	"CancelAllTimers",
+	-- spell util
+	"GetSpellInfo",
+	"GetSpellLink",
+	-- misc util
+	"EscapeStr",
+	"GetClassColorsTable",
+	"Print",
+	"Printf"
 }
 
 function LibCompat:Embed(target)

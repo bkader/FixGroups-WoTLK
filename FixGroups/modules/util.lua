@@ -128,14 +128,14 @@ function M:SortedKeys(tbl, keys)
 end
 
 function M:IsLeader()
-	return A:IsInGroup() and A.UnitIsGroupLeader("player")
+	return A.IsInGroup() and A.UnitIsGroupLeader("player")
 end
 
 function M:IsLeaderOrAssist()
-	if A:IsInRaid() then
+	if A.IsInRaid() then
 		return UnitIsRaidOfficer("player") or A.UnitIsGroupLeader("player")
 	end
-	return A:IsInGroup()
+	return A.IsInGroup()
 end
 
 function M:GetFirstSittingGroup()
@@ -191,9 +191,9 @@ function M:GetGroupChannel()
 	local zoneType = select(2, IsInInstance())
 	if zoneType == "pvp" or zoneType == "arena" then
 		return "BATTLEGROUND"
-	elseif A:IsInRaid() then
+	elseif A.IsInRaid() then
 		return "RAID"
-	elseif A:IsInGroup() then
+	elseif A.IsInGroup() then
 		return "PARTY"
 	end
 end
@@ -212,9 +212,9 @@ function M:FormatGroupComp(style, t, h, m, r, u, isInRaid)
 	elseif style == M.GROUP_COMP_STYLE.ICONS_SHORT then
 		return format("%d%s %d%s %d%s", t, M:GetRoleIcon("TANK"), h, M:GetRoleIcon("HEALER"), m + r + u, M:GetRoleIcon("DAMAGER"))
 	elseif style == M.GROUP_COMP_STYLE.GROUP_TYPE_FULL then
-		return format("%s: %s", (isInRaid or A:IsInRaid()) and L["word.raid"] or L["word.party"], M:Highlight(format("%d/%d/%d (%s)", t, h, m + r + u, compMRU(m, r, u))))
+		return format("%s: %s", (isInRaid or A.IsInRaid()) and L["word.raid"] or L["word.party"], M:Highlight(format("%d/%d/%d (%s)", t, h, m + r + u, compMRU(m, r, u))))
 	elseif style == M.GROUP_COMP_STYLE.GROUP_TYPE_SHORT then
-		return format("%s: %s", (isInRaid or A:IsInRaid()) and L["word.raid"] or L["word.party"], M:Highlight(format("%d/%d/%d", t, h, m + r + u)))
+		return format("%s: %s", (isInRaid or A.IsInRaid()) and L["word.raid"] or L["word.party"], M:Highlight(format("%d/%d/%d", t, h, m + r + u)))
 	elseif style == M.GROUP_COMP_STYLE.TEXT_FULL then
 		return format("%d/%d/%d (%s)", t, h, m + r + u, compMRU(m, r, u))
 	elseif style == M.GROUP_COMP_STYLE.TEXT_SHORT then

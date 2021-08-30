@@ -10,7 +10,7 @@ local min, sort, tinsert, wipe = min, sort, tinsert, wipe
 local GetRaidRosterInfo, GetRaidTargetIndex, IsInInstance, PromoteToAssistant, SetLootMethod, SetRaidTarget, UnitExists, UnitName = GetRaidRosterInfo, GetRaidTargetIndex, IsInInstance, PromoteToAssistant, SetLootMethod, SetRaidTarget, UnitExists, UnitName
 
 function M:FixParty()
-	if A:IsInRaid() then
+	if A.IsInRaid() then
 		return
 	end
 	local party = wipe(R.tmp1)
@@ -49,7 +49,7 @@ function M:FixParty()
 end
 
 function M:FixRaid(isRequestFromAssist)
-	if not A.util:IsLeaderOrAssist() or not A:IsInRaid() then
+	if not A.util:IsLeaderOrAssist() or not A.IsInRaid() then
 		return
 	end
 
@@ -66,7 +66,7 @@ function M:FixRaid(isRequestFromAssist)
 			name = name or "Unknown"
 			unitID = "raid" .. i
 			unitRole = A.GetUnitRole(unitID)
-			if A:IsInRaid() and A.util:IsLeader() and A.options.tankAssist and (unitRole == "TANK" or isML) and (not rank or rank < 1) then
+			if A.IsInRaid() and A.util:IsLeader() and A.options.tankAssist and (unitRole == "TANK" or isML) and (not rank or rank < 1) then
 				PromoteToAssistant(unitID)
 			end
 			if not isRequestFromAssist and A.options.clearRaidMarks and unitRole ~= "TANK" then

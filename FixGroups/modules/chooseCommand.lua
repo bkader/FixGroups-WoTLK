@@ -79,7 +79,7 @@ local function startRoll()
 	local rollPrefix = format(RANDOM_ROLL_RESULT, UnitName("player"), 867, 530, 9)
 	rollPrefix = strsub(rollPrefix, 1, strfind(rollPrefix, "867") - 1)
 	startExpecting(false, rollPrefix)
-	if A:IsInGroup() then
+	if A.IsInGroup() then
 		-- Slow your roll some more.
 		-- See comment in the announceChoicesAndRoll method for why.
 		A.After(DELAY_GROUP_ROLL, function() RandomRoll(1, #R.options) end)
@@ -125,7 +125,7 @@ function M:OnEnable()
 end
 
 local function sendMessage(cmd, message, localOnly, addPrefix)
-	if localOnly or not A:IsInGroup() or cmd == "listself" then
+	if localOnly or not A.IsInGroup() or cmd == "listself" then
 		A.console:Print(message)
 	elseif addPrefix then
 		SendChatMessage(format("[%s] %s", A.NAME, message), A.util:GetGroupChannel())
@@ -195,7 +195,7 @@ local function announceChoicesAndRoll(cmd, shouldRoll, line)
 		sendMessage(cmd, L["choose.print.noPlayers"], localOnly, false)
 	end
 	if shouldRoll then
-		if A:IsInGroup() then
+		if A.IsInGroup() then
 			-- Wait until our announcement of the options to chat gets echoed back to
 			-- us before we /roll. If we don't, thanks to lag it's possible the /roll
 			-- result will reach everyone BEFORE the announcement, which defeats the
@@ -343,7 +343,7 @@ local function choosePlayer(cmd, mode, modeType)
 	end
 
 	local shouldRoll = #R.options > 0 and cmd == "choose"
-	local line = M:GetChoosingDesc(false, cmd, mode, modeType, (not A:IsInGroup()), validClasses)
+	local line = M:GetChoosingDesc(false, cmd, mode, modeType, (not A.IsInGroup()), validClasses)
 	announceChoicesAndRoll(cmd, shouldRoll, line)
 end
 
@@ -391,7 +391,7 @@ function M:GetChoosingDesc(isTooltip, cmd, mode, modeType, useColor, validClasse
 			return formatCmd(isTooltip, cmd, L["choose.print.choosing.sitting.noGroups"])
 		end
 	elseif mode == "notMe" then
-		if A:IsInRaid() then
+		if A.IsInRaid() then
 			A.group.BuildUniqueNames()
 			arg1 = A.group:GetPlayer(UnitName("player")).uniqueName
 		else
@@ -428,7 +428,7 @@ local function chooseGroup(cmd)
 	end
 
 	wipe(R.options)
-	if A:IsInRaid() then
+	if A.IsInRaid() then
 		for g = 1, 8 do
 			if A.group:GetGroupSize(g) > 0 then
 				tinsert(R.options, format("%s %d", LOCALE_GROUP or "group", g))

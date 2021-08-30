@@ -53,7 +53,7 @@ function M:CHAT_MSG_ADDON(event, prefix, message, channel, sender)
 				R.newerVersion = false
 			end
 		end
-	elseif cmd == "f" and A:IsInRaid() and UnitIsRaidOfficer(sender) then
+	elseif cmd == "f" and A.IsInRaid() and UnitIsRaidOfficer(sender) then
 		if message == "cancel" then
 			A.sorter:StopYield(sender, message, true)
 		else
@@ -78,7 +78,7 @@ function M:FIXGROUPS_PLAYER_JOINED(event, player)
 end
 
 function M:Broadcast(message)
-	if A:IsInGroup() then
+	if A.IsInGroup() then
 		SendAddonMessage(PREFIX, message, A.util:GetGroupChannel())
 	end
 end

@@ -82,7 +82,7 @@ function M:GetPausedSortMode()
 end
 
 function M:CanBegin()
-	return not M:IsProcessing() and not M:IsPaused() and not InCombatLockdown() and A:IsInRaid() and
+	return not M:IsProcessing() and not M:IsPaused() and not InCombatLockdown() and A.IsInRaid() and
 		A.util:IsLeaderOrAssist()
 end
 
@@ -133,7 +133,7 @@ function M:StopYield(raidOfficerName, message, isCancel)
 end
 
 function M:StopIfNeeded()
-	if not A.util:IsLeaderOrAssist() or not A:IsInRaid() then
+	if not A.util:IsLeaderOrAssist() or not A.IsInRaid() then
 		A.console:Print(L["sorter.print.needRank"])
 		M:Stop()
 		return true

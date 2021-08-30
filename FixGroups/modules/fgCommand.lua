@@ -55,7 +55,7 @@ function M:Command(args)
 	end
 
 	-- Set tank marks and such.
-	if A:IsInGroup() and not A:IsInRaid() then
+	if A.IsInGroup() and not A.IsInRaid() then
 		A.marker:FixParty()
 		if sortMode.key ~= "nosort" and sortMode.key ~= "sort" then
 			A.console:Print(L["phrase.print.notInRaid"])

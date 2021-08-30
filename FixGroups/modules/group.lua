@@ -232,9 +232,9 @@ end
 
 local function buildRoster()
 	wipeRoster()
-	local isRaid = A:IsInRaid()
+	local isRaid = A.IsInRaid()
 	local areAnyUnknown
-	if A:IsInGroup() then
+	if A.IsInGroup() then
 		R.size = A.GetNumGroupMembers()
 		local p, _, unitRole
 		local firstSittingGroup = A.util:GetFirstSittingGroup()

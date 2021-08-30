@@ -116,7 +116,7 @@ end
 
 function M:SetupTooltip(tooltip, isMinimapIcon)
 	tooltip:ClearLines()
-	if A:IsInGroup() then
+	if A.IsInGroup() then
 		tooltip:AddDoubleLine(A.NAME, A.group:GetComp(A.util.GROUP_COMP_STYLE.ICONS_FULL))
 	else
 		tooltip:AddLine(A.NAME)
