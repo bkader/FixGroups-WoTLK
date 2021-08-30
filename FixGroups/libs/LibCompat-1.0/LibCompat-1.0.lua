@@ -400,6 +400,8 @@ do
 	LibCompat.IsInParty = IsInParty
 	LibCompat.IsInGroup = IsInGroup
 	LibCompat.IsInPvP = IsInPvP
+	LibCompat.GetNumGroupMembers = GetNumGroupMembers
+	LibCompat.GetNumSubgroupMembers = GetNumSubgroupMembers
 	LibCompat.GetGroupTypeAndCount = GetGroupTypeAndCount
 	LibCompat.IsGroupDead = IsGroupDead
 	LibCompat.IsGroupInCombat = IsGroupInCombat
@@ -747,6 +749,8 @@ local mixins = {
 	"IsInParty",
 	"IsInGroup",
 	"IsInPvP",
+	"GetNumGroupMembers",
+	"GetNumSubgroupMembers",
 	"GetGroupTypeAndCount",
 	"IsGroupDead",
 	"IsGroupInCombat",
