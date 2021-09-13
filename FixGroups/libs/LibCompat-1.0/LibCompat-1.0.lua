@@ -4,8 +4,7 @@
 -- @author: Kader B (https://github.com/bkader)
 --
 
-local MAJOR, MINOR = "LibCompat-1.0", 10
-
+local MAJOR, MINOR = "LibCompat-1.0", 14
 local LibCompat, oldminor = LibStub:NewLibrary(MAJOR, MINOR)
 if not LibCompat then return end
 
@@ -13,6 +12,7 @@ LibCompat.embeds = LibCompat.embeds or {}
 
 local pairs, ipairs, select, type = pairs, ipairs, select, type
 local tinsert, tremove, wipe = table.insert, table.remove, wipe
+local floor, ceil, max = math.floor, math.ceil, math.max
 local setmetatable, format = setmetatable, string.format
 local CreateFrame = CreateFrame
 
@@ -132,14 +132,20 @@ do
 	end
 
 	-- Shamelessly copied from Omen - thanks!
-	local tablePool = {}
-	setmetatable(tablePool, {__mode = "kv"})
+	local tablePool = setmetatable({}, {__mode = "kv"})
 
 	-- get a new table
-	local function newTable()
-		local t = next(tablePool) or {}
-		tablePool[t] = nil
-		return t
+	local function newTable(...)
+		local t = next(tablePool)
+		if t then
+			tablePool[t] = nil
+			for i = 1, select("#", ...) do
+				t[i] = select(i, ...)
+			end
+			return t
+		else
+			return {...}
+		end
 	end
 
 	-- delete table and return to pool
@@ -172,8 +178,6 @@ end
 -------------------------------------------------------------------------------
 
 do
-	local floor, ceil = math.floor, math.ceil
-
 	local function Round(val)
 		return (val < 0.0) and ceil(val - 0.5) or floor(val + 0.5)
 	end
@@ -191,7 +195,7 @@ do
 	end
 
 	local function WithinRangeExclusive(val, minval, maxval)
-		return val > minval and value < maxval
+		return val > minval and val < maxval
 	end
 
 	LibCompat.Round = Round
@@ -205,8 +209,7 @@ end
 
 do
 	local GetNumRaidMembers, GetNumPartyMembers = GetNumRaidMembers, GetNumPartyMembers
-	local UnitAffectingCombat, UnitIsDeadOrGhost = UnitAffectingCombat, UnitIsDeadOrGhost
-	local UnitExists, IsInInstance = UnitExists, IsInInstance
+	local UnitExists, UnitAffectingCombat, UnitIsDeadOrGhost = UnitExists, UnitAffectingCombat, UnitIsDeadOrGhost
 	local UnitHealth, UnitHealthMax = UnitHealth, UnitHealthMax
 	local UnitPower, UnitPowerMax = UnitPower, UnitPowerMax
 
@@ -214,21 +217,8 @@ do
 		return (GetNumRaidMembers() > 0)
 	end
 
-	local function IsInParty()
-		return (GetNumPartyMembers() > 0)
-	end
-
 	local function IsInGroup()
 		return (GetNumRaidMembers() > 0 or GetNumPartyMembers() > 0)
-	end
-
-	local IsInPvP
-	do
-		local instanceType
-		function IsInPvP()
-			instanceType = select(2, IsInInstance())
-			return (instanceType == "pvp" or instanceType == "arena")
-		end
 	end
 
 	local function GetNumGroupMembers()
@@ -249,107 +239,141 @@ do
 		end
 	end
 
-	local function IsGroupDead()
-		if not UnitIsDeadOrGhost("player") then
-			return false
-		elseif IsInGroup() then
-			local prefix, min_member, max_member = GetGroupTypeAndCount()
-			for i = min_member, max_member do
-				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
-				if UnitExists(unit) and not UnitIsDeadOrGhost(unit) then
-					return false
+	local UnitIterator, roster, _
+	do
+		local rmem, pmem, step, count
+
+		local function SelfIterator()
+			while step do
+				local unit, owner
+				if step == 1 then
+					unit, owner, step = "player", nil, 2
+				elseif step == 2 then
+					unit, owner, step = "playerpet", "player", nil
 				end
+				if unit and UnitExists(unit) then
+					return unit, owner
+				end
+			end
+		end
+
+		local function PartyIterator()
+			while step do
+				local unit, owner
+				if step <= 2 then
+					unit, owner = SelfIterator()
+					step = step or 3
+				elseif step == 3 then
+					unit, owner, step = format("party%d", count), nil, 4
+				elseif step == 4 then
+					unit, owner = format("partypet%d", count), format("party%d", count)
+					count = count + 1
+					step = count <= pmem and 3 or nil
+				end
+				if unit and UnitExists(unit) then
+					return unit, owner
+				end
+			end
+		end
+
+		local function RaidIterator()
+			while step do
+				local unit, owner
+				if step == 1 then
+					unit, owner, step = format("raid%d", count), nil, 2
+				elseif step == 2 then
+					unit, owner = format("raidpet%d", count), format("raid%d", count)
+					count = count + 1
+					step = count <= rmem and 1 or nil
+				end
+				if unit and UnitExists(unit) then
+					return unit, owner
+				end
+			end
+		end
+
+		function UnitIterator()
+			rmem, step = GetNumRaidMembers(), 1
+			if rmem == 0 then
+				pmem = GetNumPartyMembers()
+				if pmem == 0 then
+					return SelfIterator, false
+				end
+				count = 1
+				return PartyIterator, false
+			end
+			count = 1
+			return RaidIterator, true
+		end
+	end
+
+	local function IsGroupDead()
+		roster, _ = UnitIterator()
+		for unit in roster do
+			if not UnitIsDeadOrGhost(unit) then
+				return false
 			end
 		end
 		return true
 	end
 
 	local function IsGroupInCombat()
-		if UnitAffectingCombat("player") then
-			return true
-		elseif IsInGroup() then
-			local prefix, min_member, max_member = GetGroupTypeAndCount()
-			for i = min_member, max_member do
-				local unit = (i == 0) and "player" or format("%s%d", prefix, i)
-				if UnitExists(unit) and UnitAffectingCombat(unit) then
-					return true
-				end
+		roster, _ = UnitIterator()
+		for unit in roster do
+			if UnitAffectingCombat(unit) then
+				return true
 			end
 		end
 		return false
 	end
 
 	local function GroupIterator(func, ...)
-		if IsInRaid() then
-			for i = 1, GetNumRaidMembers() do
-				LibCompat.QuickDispatch(func, format("raid%d", i), ...)
-			end
-		elseif IsInGroup() then
-			for i = 0, 4 do
-				LibCompat.QuickDispatch(func, (i == 0) and "player" or format("party%d", i), ...)
-			end
-		else
-			LibCompat.QuickDispatch(func, "player", ...)
+		roster, _ = UnitIterator()
+		for unit, owner in roster do
+			LibCompat.QuickDispatch(func, unit, owner, ...)
 		end
-	end
-
-	local function UnitFullName(unit)
-		local name, realm = UnitName(unit)
-		local namerealm = realm and realm ~= "" and name .. "-" .. realm or name
-		return namerealm
 	end
 
 	local function GetUnitIdFromGUID(guid)
-		local unitId
 		for i = 1, 4 do
 			if UnitExists("boss" .. i) and UnitGUID("boss" .. i) == guid then
-				unitId = "boss" .. i
-				break
+				return "boss" .. i
 			end
 		end
 
-		if not unitId then
-			if UnitExists("target") and UnitGUID("target") == guid then
-				unitId = "target"
-			elseif UnitExists("focus") and UnitGUID("focus") == guid then
-				unitId = "focus"
-			elseif UnitExists("targettarget") and UnitGUID("targettarget") == guid then
-				unitId = "targettarget"
-			elseif UnitExists("focustarget") and UnitGUID("focustarget") == guid then
-				unitId = "focustarget"
-			elseif UnitExists("mouseover") and UnitGUID("mouseover") == guid then
-				unitId = "mouseover"
+		if UnitExists("target") and UnitGUID("target") == guid then
+			return "target"
+		elseif UnitExists("focus") and UnitGUID("focus") == guid then
+			return "focus"
+		elseif UnitExists("targettarget") and UnitGUID("targettarget") == guid then
+			return "targettarget"
+		elseif UnitExists("focustarget") and UnitGUID("focustarget") == guid then
+			return "focustarget"
+		elseif UnitExists("mouseover") and UnitGUID("mouseover") == guid then
+			return "mouseover"
+		end
+
+		roster, _ = UnitIterator()
+		for unit in roster do
+			if UnitGUID(unit) == guid then
+				return unit
+			elseif UnitExists(unit .. "target") and UnitGUID(unit .. "target") == guid then
+				return unit .. "target"
 			end
 		end
-
-		if not unitId then
-			GroupIterator(function(unit)
-				if unitId then
-					return
-				elseif UnitExists(unit) and UnitGUID(unit) == guid then
-					unitId = unit
-				elseif UnitExists(unit .. "pet") and UnitGUID(unit .. "pet") == guid then
-					unitId = unit .. "pet"
-				elseif UnitExists(unit .. "target") and UnitGUID(unit .. "target") == guid then
-					unitId = unit .. "target"
-				elseif UnitExists(unit .. "pettarget") and UnitGUID(unit .. "pettarget") == guid then
-					unitId = unit .. "pettarget"
-				end
-			end)
-		end
-
-		return unitId
 	end
 
 	local function GetClassFromGUID(guid)
 		local unit = GetUnitIdFromGUID(guid)
+		local class
 		if unit and unit:find("pet") then
-			return "PET", unit
+			class = "PET"
+		elseif unit and unit:find("boss") then
+			class = "BOSS"
+		elseif unit then
+			class = select(2, UnitClass(unit))
 		end
-		if UnitExists(unit) then
-			return select(2, UnitClass(unit)), unit
-		end
-		return nil, unit
+		return class, unit
 	end
 
 	local function GetCreatureId(guid)
@@ -361,59 +385,52 @@ do
 	end
 
 	local function UnitHealthInfo(unit, guid)
-		local health, maxhealth
+		unit = unit or guid and GetUnitIdFromGUID(guid)
+		local percent, health, maxhealth
 		if unit and UnitExists(unit) then
 			health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
-		end
-
-		if not health and guid then
-			unit = GetUnitIdFromGUID(guid)
-			if unit then
-				health, maxhealth = UnitHealth(unit), UnitHealthMax(unit)
+			if health and maxhealth then
+				percent = 100 * health / max(1, maxhealth)
 			end
 		end
-
-		if health and maxhealth then
-			return floor(100 * health / maxhealth), health, maxhealth
-		end
+		return percent, health, maxhealth
 	end
 
 	local function UnitPowerInfo(unit, guid, powerType)
-		local power, maxpower
+		unit = unit or guid and GetUnitIdFromGUID(guid)
+		local percent, power, maxpower
 		if unit and UnitExists(unit) then
 			power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
-		end
-
-		if not power and guid then
-			unit = GetUnitIdFromGUID(guid)
-			if unit then
-				power, maxpower = UnitPower(unit, powerType), UnitPowerMax(unit, powerType)
+			if power and maxpower then
+				percent = 100 * power / max(1, maxpower)
 			end
 		end
+		return percent, power, maxpower
+	end
 
-		if power and maxpower then
-			return floor(100 * power / maxpower), power, maxpower
-		end
+	local function UnitFullName(unit)
+		local name, realm = UnitName(unit)
+		local namerealm = realm and realm ~= "" and name .. "-" .. realm or name
+		return namerealm
 	end
 
 	LibCompat.IsInRaid = IsInRaid
-	LibCompat.IsInParty = IsInParty
 	LibCompat.IsInGroup = IsInGroup
-	LibCompat.IsInPvP = IsInPvP
 	LibCompat.GetNumGroupMembers = GetNumGroupMembers
 	LibCompat.GetNumSubgroupMembers = GetNumSubgroupMembers
 	LibCompat.GetGroupTypeAndCount = GetGroupTypeAndCount
 	LibCompat.IsGroupDead = IsGroupDead
 	LibCompat.IsGroupInCombat = IsGroupInCombat
 	LibCompat.GroupIterator = GroupIterator
-	LibCompat.UnitFullName = UnitFullName
+	LibCompat.UnitIterator = UnitIterator
 	LibCompat.GetUnitIdFromGUID = GetUnitIdFromGUID
 	LibCompat.GetClassFromGUID = GetClassFromGUID
 	LibCompat.GetCreatureId = GetCreatureId
 	LibCompat.GetUnitCreatureId = GetUnitCreatureId
 	LibCompat.UnitHealthInfo = UnitHealthInfo
-	LibCompat.UnitHealthPercent = UnitHealthInfo -- backwards compatibility
+	LibCompat.UnitHealthPercent = UnitHealthInfo -- backward compatibility
 	LibCompat.UnitPowerInfo = UnitPowerInfo
+	LibCompat.UnitFullName = UnitFullName
 end
 
 -------------------------------------------------------------------------------
@@ -460,7 +477,7 @@ do
 	local classColorsTable
 	local colors = CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS
 
-	function LibCompat.GetClassColorsTable()
+	local function GetClassColorsTable()
 		if not classColorsTable then
 			-- add missing class color strings
 			colors.DEATHKNIGHT.colorStr = "ffc41f3b"
@@ -483,17 +500,31 @@ do
 
 		return classColorsTable
 	end
+
+	local function GetClassColorObj(class)
+		classColorsTable = classColorsTable or GetClassColorsTable()
+		return class and classColorsTable[class]
+	end
+
+	local function GetClassColor(class)
+		local obj = GetClassColorObj(class)
+		if obj then
+			return obj.r, obj.g, obj.b, obj.colorStr
+		end
+		return 1, 1, 1, "ffffffff"
+	end
+
+	LibCompat.GetClassColorsTable = GetClassColorsTable
+	LibCompat.GetClassColorObj = GetClassColorObj
+	LibCompat.GetClassColor = GetClassColor
 end
 
 -------------------------------------------------------------------------------
 -- C_Timer mimic
 
 do
-	local Timer = {}
-
-	local TickerPrototype = {}
+	local TickerPrototype, waitTable, tickerCache = {}, {}, nil
 	local TickerMetatable = {__index = TickerPrototype, __metatable = true}
-	local waitTable = {}
 
 	local waitFrame = LibCompat_TimerFrame or CreateFrame("Frame", "LibCompat_TimerFrame", UIParent)
 	waitFrame:SetScript("OnUpdate", function(self, elapsed)
@@ -508,16 +539,17 @@ do
 					ticker._delay = ticker._delay - elapsed
 					i = i + 1
 				else
-					ticker._callback(ticker, LibCompat.SafeUnpack(ticker._args or {}))
+					ticker._callback(ticker, LibCompat.SafeUnpack(ticker._args))
 
-					if ticker._remainingIterations == -1 then
+					if ticker._iterations == -1 then
 						ticker._delay = ticker._duration
 						i = i + 1
-					elseif ticker._remainingIterations > 1 then
-						ticker._remainingIterations = ticker._remainingIterations - 1
+						tickerCache = ticker
+					elseif ticker._iterations > 1 then
+						ticker._iterations = ticker._iterations - 1
 						ticker._delay = ticker._duration
 						i = i + 1
-					elseif ticker._remainingIterations == 1 then
+					elseif ticker._iterations == 1 then
 						tremove(waitTable, i)
 						total = total - 1
 					end
@@ -540,8 +572,10 @@ do
 	end
 
 	local function CreateTicker(duration, callback, iterations, ...)
-		local ticker = setmetatable({}, TickerMetatable)
-		ticker._remainingIterations = iterations or -1
+		local ticker = tickerCache or setmetatable({}, TickerMetatable)
+		tickerCache = nil
+
+		ticker._iterations = iterations or -1
 		ticker._duration = duration
 		ticker._delay = duration
 		ticker._callback = callback
@@ -559,30 +593,35 @@ do
 		self._cancelled = true
 	end
 
-	LibCompat.CancelAllTimers = function()
-		for i = 1, #waitTable do
-			if waitTable[i] and not waitTable[i]._cancelled then
-				waitTable[i]:Cancel()
-			end
-		end
-	end
-
-	LibCompat.After = function(duration, callback, ...)
+	local function After(duration, callback, ...)
 		AddDelayedCall({
-			_remainingIterations = 1,
+			_iterations = 1,
 			_delay = duration,
 			_callback = callback,
 			_args = LibCompat.SafePack(...)
 		})
 	end
 
-	LibCompat.NewTimer = function(duration, callback, ...)
+	local function NewTimer(duration, callback, ...)
 		return CreateTicker(duration, callback, 1, ...)
 	end
 
-	LibCompat.NewTicker = function(duration, callback, iterations, ...)
+	local function NewTicker(duration, callback, iterations, ...)
 		return CreateTicker(duration, callback, iterations, ...)
 	end
+
+	local function CancelAllTimers()
+		for i = 1, #waitTable do
+			if waitTable[i] and waitTable[i].Cancel and not waitTable[i]._cancelled then
+				waitTable[i]:Cancel()
+			end
+		end
+	end
+
+	LibCompat.After = After
+	LibCompat.NewTimer = NewTimer
+	LibCompat.NewTicker = NewTicker
+	LibCompat.CancelAllTimers = CancelAllTimers
 end
 
 -------------------------------------------------------------------------------
@@ -645,9 +684,11 @@ end
 do
 	local LGT = LibStub("LibGroupTalents-1.0")
 	local UnitClass, MAX_TALENT_TABS = UnitClass, MAX_TALENT_TABS or 3
+	local GetActiveTalentGroup, GetTalentTabInfo = GetActiveTalentGroup, GetTalentTabInfo
+	local LGTRoleTable = {melee = "DAMAGER", caster = "DAMAGER", healer = "HEALER", tank = "TANK"}
 
 	-- list of class to specs
-	local specIDs = {
+	local specsTable = {
 		["MAGE"] = {62, 63, 64},
 		["PRIEST"] = {256, 257, 258},
 		["ROGUE"] = {259, 260, 261},
@@ -661,19 +702,34 @@ do
 	}
 
 	-- checks if the feral druid is a cat or tank spec
-	local function GetDruidSubSpec(unit)
+	local function GetDruidSpec(unit)
 		-- 57881 : Natural Reaction -- used by druid tanks
 		local points = LGT:UnitHasTalent(unit, LibCompat.GetSpellInfo(57881), LGT:GetActiveTalentGroup(unit))
 		return (points and points > 0) and 3 or 2
 	end
 
-	local function GetSpecialization(unit, class)
+	local function GetSpecialization(isInspect, isPet, specGroup)
+		local currentSpecGroup = GetActiveTalentGroup(isInspect, isPet) or (specGroup or 1)
+		local points, specname, specid = 0, nil, nil
+
+		for i = 1, MAX_TALENT_TABS do
+			local name, _, pointsSpent = GetTalentTabInfo(i, isInspect, isPet, currentSpecGroup)
+			if points <= pointsSpent then
+				points = pointsSpent
+				specname = name
+				specid = i
+			end
+		end
+		return specid, specname, points
+	end
+
+	local function GetInspectSpecialization(unit, class)
 		unit = unit or "player"
 		class = class or select(2, UnitClass(unit))
 
 		local spec  -- start with nil
 
-		if unit and specIDs[class] then
+		if unit and specsTable[class] then
 			local talentGroup = LGT:GetActiveTalentGroup(unit)
 			local maxPoints, index = 0, 0
 
@@ -686,7 +742,7 @@ do
 							if i == 3 then
 								index = 4
 							elseif i == 2 then
-								index = GetDruidSubSpec(unit)
+								index = GetDruidSpec(unit)
 							end
 						else
 							index = i
@@ -694,35 +750,60 @@ do
 					end
 				end
 			end
-
-			spec = specIDs[class][index]
+			spec = specsTable[class][index]
 		end
 
 		return spec
 	end
 
-	local function GetTrueRole(role)
-		if role == "melee" or role == "caster" then
-			role = "DAMAGER"
-		elseif role == "tank" then
-			role = "TANK"
-		elseif role == "healer" then
-			role = "HEALER"
-		end
-		return role
+	local function GetSpecializationRole(unit)
+		return LGTRoleTable[LGT:GetUnitRole(unit or "player")] or "NONE"
+	end
+
+	local function UnitGroupRolesAssigned(unit)
+		return LGTRoleTable[LGT:GetUnitRole(unit or "player")] or "NONE"
 	end
 
 	local function GetUnitRole(unit)
-		return GetTrueRole(LGT:GetUnitRole(unit)) or "NONE"
+		return LGTRoleTable[LGT:GetUnitRole(unit or "player")] or "NONE"
 	end
 
 	local function GetGUIDRole(guid)
-		return GetTrueRole(LGT:GetGUIDRole(guid)) or "NONE"
+		return LGTRoleTable[LGT:GetGUIDRole(guid)] or "NONE"
 	end
 
 	LibCompat.GetSpecialization = GetSpecialization
-	LibCompat.GetUnitRole = GetUnitRole
+	LibCompat.GetInspectSpecialization = GetInspectSpecialization
+	LibCompat.GetSpecializationRole = GetSpecializationRole
+	LibCompat.UnitGroupRolesAssigned = UnitGroupRolesAssigned
+	LibCompat.GetUnitRole = UnitGroupRolesAssigned
 	LibCompat.GetGUIDRole = GetGUIDRole
+	LibCompat.GetUnitSpec = GetInspectSpecialization
+end
+
+-------------------------------------------------------------------------------
+
+do
+	local C_PvP = {}
+	local IsInInstance, instanceType = IsInInstance, nil
+
+	function C_PvP.IsPvPMap()
+		instanceType = select(2, IsInInstance())
+		return (instanceType == "pvp" or instanceType == "arena")
+	end
+
+	function C_PvP.IsBattleground()
+		instanceType = select(2, IsInInstance())
+		return (instanceType == "pvp")
+	end
+
+	function C_PvP.IsArena()
+		instanceType = select(2, IsInInstance())
+		return (instanceType == "arena")
+	end
+
+	LibCompat.IsInPvP = C_PvP.IsPvPMap
+	LibCompat.C_PvP = C_PvP
 end
 
 -------------------------------------------------------------------------------
@@ -746,7 +827,6 @@ local mixins = {
 	"WithinRangeExclusive",
 	-- roster util
 	"IsInRaid",
-	"IsInParty",
 	"IsInGroup",
 	"IsInPvP",
 	"GetNumGroupMembers",
@@ -755,21 +835,27 @@ local mixins = {
 	"IsGroupDead",
 	"IsGroupInCombat",
 	"GroupIterator",
+	"UnitIterator",
 	"UnitFullName",
+	"C_PvP",
 	-- unit util
 	"GetUnitIdFromGUID",
 	"GetClassFromGUID",
 	"GetCreatureId",
 	"GetUnitCreatureId",
 	"UnitHealthInfo",
-	"UnitHealthPercent",
+	"UnitHealthPercent", -- backward compatibility
 	"UnitPowerInfo",
 	"UnitIsGroupLeader",
 	"UnitIsGroupAssistant",
+	"GetUnitSpec", -- backward compatibility
 	"GetSpecialization",
+	"GetInspectSpecialization",
+	"UnitGroupRolesAssigned",
+	"GetSpecializationRole",
 	"GetUnitRole",
 	"GetGUIDRole",
-	-- timer unit
+	-- timer util
 	"After",
 	"NewTimer",
 	"NewTicker",
@@ -780,6 +866,8 @@ local mixins = {
 	-- misc util
 	"EscapeStr",
 	"GetClassColorsTable",
+	"GetClassColorObj",
+	"GetClassColor",
 	"Print",
 	"Printf"
 }

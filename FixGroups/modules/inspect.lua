@@ -113,7 +113,7 @@ function M:GetInspectData(guid)
 	if not name then
 		return false, name, specId
 	end
-	specId = A.GetSpecialization(name)
+	specId = A.GetInspectSpecialization(name)
 	if not specId or specId == 0 then
 		return false, name, specId
 	end

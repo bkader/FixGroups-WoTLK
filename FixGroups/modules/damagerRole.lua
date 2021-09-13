@@ -221,7 +221,7 @@ function M:GetDamagerRole(player)
 
 	-- Ambiguous class, need to check spec.
 	if UnitIsUnit(player.name, "player") then
-		local specId = A.GetSpecialization(player.name)
+		local specId = A.GetInspectSpecialization(player.name)
 		if specId then
 			if SPECID_ROLE[specId] == "melee" then
 				return A.group.ROLE.MELEE
