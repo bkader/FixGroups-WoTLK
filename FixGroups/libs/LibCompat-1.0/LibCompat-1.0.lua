@@ -1280,10 +1280,8 @@ do
 			return self._rotatesTexture
 		end,
 		SetReverseFill = function(self, reverse)
-			if type(reverse) == "boolean" then
-				self._reverseFill = reverse
-				self:Update()
-			end
+			self._reverseFill = (reverse == true)
+			self:Update()
 		end,
 		GetReverseFill = function(self)
 			return self._reverseFill
