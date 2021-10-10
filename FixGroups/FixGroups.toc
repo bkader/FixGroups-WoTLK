@@ -9,7 +9,7 @@
 ## X-Curse-Project-Name: FixGroups
 ## X-Curse-Project-ID: fixgroups
 ## X-Curse-Repository-ID: wow/fixgroups/mainline
-## X-Date: 2021-10-07 @ 03:20 AM |cff808080UTC|r
+## X-Date: 2021-10-10 @ 02:45 PM |cff808080UTC|r
 
 libs\libs.xml
 locales\locales.xml
