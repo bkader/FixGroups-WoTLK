@@ -24,12 +24,11 @@ end
 
 local function inspectTimerStop(reason)
 	if R.timer then
-		R.timer:Cancel()
+		R.timer = A.CancelTimer(R.timer, true)
 		if A.DEBUG >= 2 then
 			A.console:Debugf(M, "timer stop %s", reason)
 		end
 	end
-	R.timer = nil
 end
 
 local function inspectTimerTick()

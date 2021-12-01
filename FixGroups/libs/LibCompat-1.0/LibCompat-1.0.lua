@@ -899,7 +899,7 @@ do
 			return tremove(timerPool.cache) or {}
 		end
 
-		function del(t, temp)
+		function del(t)
 			if t then
 				setmetatable(t, nil)
 				for k, _ in pairs(t) do

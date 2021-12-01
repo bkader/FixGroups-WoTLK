@@ -69,9 +69,8 @@ function M:FIXGROUPS_PLAYER_JOINED(event, player)
 	if not R.broadcastVersionTimer then
 		R.broadcastVersionTimer = A.NewTimer(DELAY_BROADCAST_VERSION, function()
 			if R.broadcastVersionTimer then
-				R.broadcastVersionTimer:Cancel()
+				R.broadcastVersionTimer = A.CancelTimer(R.broadcastVersionTimer, true)
 			end
-			R.broadcastVersionTimer = nil
 			M:Broadcast("v:" .. VERSION_STRING)
 		end)
 	end

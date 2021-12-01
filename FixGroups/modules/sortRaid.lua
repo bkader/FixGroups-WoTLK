@@ -131,7 +131,7 @@ end
 
 function M:CancelAction()
 	if R.action.timer then
-		R.action.timer:Cancel()
+		R.action.timer = A.CancelTimer(R.action.timer, true)
 	end
 	wipe(R.action)
 end

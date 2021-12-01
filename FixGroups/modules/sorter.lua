@@ -273,9 +273,8 @@ end
 
 function M:ClearTimeout(resetCount)
 	if R.timeoutTimer then
-		R.timeoutTimer:Cancel()
+		R.timeoutTimer = A.CancelTimer(R.timeoutTimer, true)
 	end
-	R.timeoutTimer = nil
 	if resetCount then
 		R.active.timeoutCount = false
 	end

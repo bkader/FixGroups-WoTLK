@@ -295,9 +295,8 @@ local function buildRoster()
 			A.console:Debugf(M, "cancelling scheduled ForceBuildRoster")
 		end
 		if R.rebuildTimer then
-			R.rebuildTimer:Cancel()
+			R.rebuildTimer = A.CancelTimer(R.rebuildTimer, true)
 		end
-		R.rebuildTimer = nil
 	end
 end
 
